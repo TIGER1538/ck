@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+lib/
+bin/
+*.o
+*.a
+*.so
+*.dylib
+*.gch
+*.d
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CodeQL
+_codeql_detected_source_root
