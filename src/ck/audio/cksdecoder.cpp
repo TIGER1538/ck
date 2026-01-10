@@ -1,6 +1,7 @@
 #include "ck/audio/cksdecoder.h"
 #include "ck/audio/cksaudiostream.h"
 #include "ck/audio/audioformat.h"
+#include "ck/audio/audioutil.h"
 #include "ck/audio/buffersource.h"
 #include "ck/audio/adpcmdecoder.h"
 #include "ck/audio/pcmi16decoder.h"
@@ -156,10 +157,23 @@ int decodeFrames(
     // Set decoder position to exact frame
     decoder->setFramePos(startFrame);
 
-    // Decode frames
-    int framesDecoded = decoder->decode(outBuffer, frameCount);
+    // Allocate temporary buffer for int32 output
+    int totalSamples = frameCount * sampleInfo.channels;
+    int32* tempBuffer = new int32[totalSamples];
+    if (!tempBuffer)
+    {
+        decoder->~Decoder();
+        return 0;
+    }
+
+    // Decode frames to int32
+    int framesDecoded = decoder->decode(tempBuffer, frameCount);
+
+    // Convert from int32 to int16
+    AudioUtil::convert(tempBuffer, outBuffer, framesDecoded * sampleInfo.channels);
 
     // Cleanup
+    delete[] tempBuffer;
     decoder->~Decoder();
 
     return framesDecoded;
@@ -209,7 +223,7 @@ int16* decodeFile(
         return NULL;
     }
 
-    // Allocate output buffer
+    // Allocate output buffer for int16
     int totalSamples = totalFrames * sampleInfo.channels;
     int16* outBuffer = new int16[totalSamples];
     if (!outBuffer)
@@ -219,21 +233,36 @@ int16* decodeFile(
         return NULL;
     }
 
-    // Create appropriate decoder
-    byte decoderMem[sizeof(AdpcmDecoder)]; // Large enough for any decoder
-    Decoder* decoder = createDecoder(source, decoderMem);
-    if (!decoder)
+    // Allocate temporary buffer for int32 decoding
+    int32* tempBuffer = new int32[totalSamples];
+    if (!tempBuffer)
     {
+        CK_LOG_ERROR("Failed to allocate temp buffer for %d samples", totalSamples);
         delete[] outBuffer;
         *outFrameCount = 0;
         return NULL;
     }
 
-    // Decode all frames
+    // Create appropriate decoder
+    byte decoderMem[sizeof(AdpcmDecoder)]; // Large enough for any decoder
+    Decoder* decoder = createDecoder(source, decoderMem);
+    if (!decoder)
+    {
+        delete[] tempBuffer;
+        delete[] outBuffer;
+        *outFrameCount = 0;
+        return NULL;
+    }
+
+    // Decode all frames to int32
     decoder->setFramePos(0);
-    int framesDecoded = decoder->decode(outBuffer, totalFrames);
+    int framesDecoded = decoder->decode(tempBuffer, totalFrames);
+
+    // Convert from int32 to int16
+    AudioUtil::convert(tempBuffer, outBuffer, framesDecoded * sampleInfo.channels);
 
     // Cleanup
+    delete[] tempBuffer;
     decoder->~Decoder();
 
     *outFrameCount = framesDecoded;

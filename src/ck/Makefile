@@ -49,6 +49,7 @@ CK_CPP_SRC_FILES := \
     audio/bufferpool.cpp \
     audio/buffersource.cpp \
     audio/cksaudiostream.cpp \
+    audio/cksdecoder.cpp \
     audio/cksstreamsound.cpp \
     audio/commandobject.cpp \
     audio/customaudiostream.cpp \
